@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -29,6 +30,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -52,6 +54,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.food.app.FoodApp
+import com.food.app.data.Barcode
 import com.food.app.data.LogEntry
 import com.food.core.AmountUnit
 import com.food.core.Amounts
@@ -69,9 +72,20 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
 
-private class Loaded(val food: Food?, val nutrients: Map<String, FoodNutrient>, val entry: LogEntry?, val last: LogEntry?)
+private class Loaded(
+    val food: Food?,
+    val nutrients: Map<String, FoodNutrient>,
+    val entry: LogEntry?,
+    val last: LogEntry?,
+    /** What [barcode] is linked to now, if anything. */
+    val mapping: Barcode?,
+)
 
-/** Add [foodId] to a day, or edit entry [entryId]. Shows every nutrient and where it came from. */
+/**
+ * Add [foodId] to a day, or edit entry [entryId]. Shows every nutrient and where it came from.
+ * With a [barcode]: if it's already linked to this food, its usual portion is filled in and one
+ * tap logs it; if not, this links it (with a product name and usual portion) as it logs.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FoodScreen(
@@ -79,8 +93,10 @@ fun FoodScreen(
     date: LocalDate,
     initialMeal: Meal,
     entryId: Long?,
-    onSaved: (LogEntry) -> Unit,
+    barcode: String?,
+    onSaved: (message: String) -> Unit,
     onDeleted: (LogEntry) -> Unit,
+    onRelink: (String) -> Unit,
     onBack: () -> Unit,
 ) {
     val app = FoodApp.app
@@ -89,6 +105,7 @@ fun FoodScreen(
     var amountText by rememberSaveable { mutableStateOf("") }
     var unit by rememberSaveable { mutableStateOf(AmountUnit.G.code) }
     var meal by rememberSaveable { mutableStateOf(initialMeal.code) }
+    var label by rememberSaveable { mutableStateOf("") }
     var initialised by rememberSaveable { mutableStateOf(false) }
     var detail by remember { mutableStateOf<Pair<NutrientDef, FoodNutrient?>?>(null) }
 
@@ -100,13 +117,18 @@ fun FoodScreen(
                 nutrients = app.foods.nutrients(foodId).associateBy { it.nutrient },
                 entry = entry,
                 last = if (entry == null) app.user.log().last(foodId) else null,
+                mapping = barcode?.let { app.user.barcodes().get(it) },
             )
         }
         if (!initialised) {
-            // Editing: what was logged. Adding: what you had last time, else 100 g.
-            val from = loaded?.entry ?: loaded?.last
-            amountText = from?.let { Format.amount(it.amount) } ?: "100"
-            unit = from?.unit ?: AmountUnit.G.code
+            // Editing: what was logged. A known barcode: its usual portion. Otherwise what you
+            // had last time, else 100 g.
+            val l = loaded
+            val known = l?.mapping?.takeIf { it.foodId == foodId }
+            val amount = l?.entry?.amount ?: known?.amount ?: l?.last?.amount
+            amountText = amount?.let(Format::amount) ?: "100"
+            unit = l?.entry?.unit ?: known?.unit ?: l?.last?.unit ?: AmountUnit.G.code
+            label = l?.mapping?.label.orEmpty()
             initialised = true
         }
     }
@@ -115,25 +137,43 @@ fun FoodScreen(
     val amount = Format.parseAmount(amountText)
     val grams = amount?.let { Amounts.grams(it, AmountUnit.of(unit)) }
     val name = l?.food?.nameSv ?: l?.entry?.foodName ?: ""
+    val known = barcode != null && l?.mapping?.foodId == foodId
+    val linking = barcode != null && !known && entryId == null
 
-    fun save() {
+    /** Saves the entry (unless [logIt] is false) and, when linking, the barcode. */
+    fun save(logIt: Boolean = true) {
         val g = grams ?: return
         val a = amount ?: return
         val now = System.currentTimeMillis()
+        val productName = label.trim().ifEmpty { name }
         scope.launch {
-            val saved = withContext(Dispatchers.IO) {
+            val message = withContext(Dispatchers.IO) {
+                if (linking) app.user.barcodes().put(
+                    Barcode(barcode!!, foodId, productName, a, unit, l?.mapping?.createdAt ?: now, now)
+                )
                 val old = l?.entry
-                if (old != null) {
-                    old.copy(meal = meal, grams = g, amount = a, unit = unit, updatedAt = now).also { app.user.log().update(it) }
-                } else {
-                    val e = LogEntry(
-                        date = date.toString(), meal = meal, foodId = foodId, foodName = name,
-                        grams = g, amount = a, unit = unit, createdAt = now, updatedAt = now,
-                    )
-                    e.copy(id = app.user.log().insert(e))
+                when {
+                    old != null -> {
+                        app.user.log().update(old.copy(meal = meal, grams = g, amount = a, unit = unit, updatedAt = now))
+                        "Saved ${old.foodName}"
+                    }
+                    logIt -> {
+                        app.user.log().insert(
+                            LogEntry(
+                                date = date.toString(), meal = meal, foodId = foodId,
+                                // A scanned product reads better under your own name for it.
+                                foodName = if (barcode != null) productName else name,
+                                grams = g, amount = a, unit = unit,
+                                via = if (barcode != null) "barcode" else "manual",
+                                createdAt = now, updatedAt = now,
+                            )
+                        )
+                        "Logged $productName" + if (linking) " · barcode saved" else ""
+                    }
+                    else -> "Barcode saved for $productName"
                 }
             }
-            onSaved(saved)
+            onSaved(message)
         }
     }
 
@@ -163,6 +203,9 @@ fun FoodScreen(
             contentPadding = PaddingValues(top = pad.calculateTopPadding(), bottom = 32.dp),
         ) {
             item { Header(l.food, name) }
+            if (barcode != null) item {
+                BarcodeCard(barcode, known, l.mapping, label, { label = it }, onRelink = { onRelink(barcode) })
+            }
             item {
                 AmountRow(
                     amountText = amountText, onAmount = { amountText = it },
@@ -178,8 +221,21 @@ fun FoodScreen(
                     enabled = grams != null,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 ) {
-                    Text(if (l.entry != null) "Save" else "Add to ${Meal.of(meal).label}")
+                    Text(
+                        when {
+                            l.entry != null -> "Save"
+                            linking -> "Save barcode & add to ${Meal.of(meal).label}"
+                            else -> "Add to ${Meal.of(meal).label}"
+                        }
+                    )
                 }
+            }
+            if (linking) item {
+                OutlinedButton(
+                    onClick = { save(logIt = false) },
+                    enabled = grams != null,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                ) { Text("Only save the barcode") }
             }
             if (l.food == null) {
                 item {
@@ -226,6 +282,46 @@ private fun Header(food: Food?, name: String) {
             if (waste > 0) {
                 Text(
                     "Weigh the edible part: ${Format.value(waste)}% of the whole (peel, bones, etc.) isn't counted.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BarcodeCard(
+    ean: String,
+    known: Boolean,
+    mapping: Barcode?,
+    label: String,
+    onLabel: (String) -> Unit,
+    onRelink: () -> Unit,
+) {
+    Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Column(Modifier.padding(16.dp)) {
+            if (known && mapping != null) {
+                Text(mapping.label, style = MaterialTheme.typography.titleMedium)
+                Text("Barcode $ean", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TextButton(onClick = onRelink, contentPadding = PaddingValues(0.dp)) { Text("Wrong food? Link it to another") }
+            } else {
+                Text(
+                    if (mapping != null) "Barcode $ean, moving from ${mapping.label}" else "New barcode $ean",
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = label,
+                    onValueChange = onLabel,
+                    label = { Text("Product name") },
+                    placeholder = { Text("e.g. Coop kefir 1 L") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "The amount below becomes its usual portion. Next time, one tap logs it.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

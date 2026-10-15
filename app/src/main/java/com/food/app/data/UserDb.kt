@@ -1,6 +1,7 @@
 package com.food.app.data
 
 import android.content.Context
+import androidx.room.AutoMigration
 import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Database
@@ -8,6 +9,7 @@ import androidx.room.Delete
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
@@ -37,6 +39,30 @@ data class LogEntry(
     @ColumnInfo(name = "created_at") val createdAt: Long,
     @ColumnInfo(name = "updated_at") val updatedAt: Long,
 )
+
+/** A product's barcode, linked to the database food it matches and your usual portion of it. */
+@Entity(tableName = "barcode", indices = [Index("food_id")])
+data class Barcode(
+    /** EAN-13 or EAN-8, check digit verified. */
+    @PrimaryKey val ean: String,
+    @ColumnInfo(name = "food_id") val foodId: String,
+    /** Your own name for the product, e.g. "Coop kefir 1 L". */
+    val label: String,
+    /** The default portion, as amount + unit like a log entry. */
+    val amount: Double,
+    val unit: String,
+    @ColumnInfo(name = "created_at") val createdAt: Long,
+    @ColumnInfo(name = "updated_at") val updatedAt: Long,
+)
+
+@Dao
+interface BarcodeDao {
+    @Query("SELECT * FROM barcode WHERE ean = :ean")
+    suspend fun get(ean: String): Barcode?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun put(barcode: Barcode)
+}
 
 data class FoodUsage(val foodId: String, val foodName: String, val times: Int, val lastAt: Long)
 
@@ -69,9 +95,15 @@ interface LogDao {
 }
 
 /** user.db: everything the user enters. Never shipped, never in git. */
-@Database(entities = [LogEntry::class], version = 1, exportSchema = true)
+@Database(
+    entities = [LogEntry::class, Barcode::class],
+    version = 2,
+    exportSchema = true,
+    autoMigrations = [AutoMigration(from = 1, to = 2)],
+)
 abstract class UserDb : RoomDatabase() {
     abstract fun log(): LogDao
+    abstract fun barcodes(): BarcodeDao
 
     companion object {
         fun open(ctx: Context): UserDb =

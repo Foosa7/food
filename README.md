@@ -6,6 +6,7 @@ Work in progress. Done so far:
 
 - **(a)** the Livsmedelsverket sync to SQLite
 - **(b)** the app: search Swedish and English names, log food by gram or ml to a meal, and see a day's energy and macros, with every nutrient of a food and where each value came from
+- **(d)** barcode scanning (EAN-13/EAN-8, offline): a known product logs in one tap with its usual portion; an unknown one is linked to a database food, with your name for it, as you log it
 
 ## Data
 

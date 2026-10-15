@@ -48,9 +48,17 @@ class MainActivity : ComponentActivity() {
 
 sealed interface Screen {
     data object Day : Screen
-    data class Search(val date: LocalDate, val meal: Meal) : Screen
+    data class Scan(val date: LocalDate, val meal: Meal) : Screen
+    /** With [linkBarcode], the food picked gets that barcode. */
+    data class Search(val date: LocalDate, val meal: Meal, val linkBarcode: String? = null) : Screen
     /** Adding [foodId] when [entryId] is null, otherwise editing that entry. */
-    data class Food(val foodId: String, val date: LocalDate, val meal: Meal, val entryId: Long? = null) : Screen
+    data class Food(
+        val foodId: String,
+        val date: LocalDate,
+        val meal: Meal,
+        val entryId: Long? = null,
+        val barcode: String? = null,
+    ) : Screen
 }
 
 @Composable
@@ -74,6 +82,7 @@ private fun AppRoot() {
     fun push(s: Screen) { stack += s }
     fun pop() { if (stack.size > 1) stack.removeAt(stack.lastIndex) }
     fun home() { while (stack.size > 1) pop() }
+    fun replace(s: Screen) { pop(); push(s) }
 
     BackHandler(stack.size > 1) { pop() }
 
@@ -85,13 +94,31 @@ private fun AppRoot() {
             snackbar = snackbar,
             onDate = { day = it.toString() },
             onAdd = { meal -> push(Screen.Search(date, meal ?: Meal.at(LocalTime.now()))) },
+            onScan = { push(Screen.Scan(date, Meal.at(LocalTime.now()))) },
             onOpen = { e -> push(Screen.Food(e.foodId, date, Meal.of(e.meal), e.id)) },
+        )
+        is Screen.Scan -> ScanScreen(
+            date = s.date,
+            meal = s.meal,
+            onCode = { code ->
+                scope.launch {
+                    // Known: straight to the food with its usual portion. Unknown: find the food.
+                    val linked = FoodApp.app.user.barcodes().get(code)
+                    if (stack.lastOrNull() != s) return@launch
+                    replace(
+                        if (linked != null) Screen.Food(linked.foodId, s.date, s.meal, barcode = code)
+                        else Screen.Search(s.date, s.meal, linkBarcode = code)
+                    )
+                }
+            },
+            onBack = ::pop,
         )
         is Screen.Search -> SearchScreen(
             date = s.date,
             meal = s.meal,
             catalog = catalog,
-            onPick = { id -> push(Screen.Food(id, s.date, s.meal)) },
+            linkBarcode = s.linkBarcode,
+            onPick = { id -> push(Screen.Food(id, s.date, s.meal, barcode = s.linkBarcode)) },
             onBack = ::pop,
         )
         is Screen.Food -> FoodScreen(
@@ -99,9 +126,10 @@ private fun AppRoot() {
             date = s.date,
             initialMeal = s.meal,
             entryId = s.entryId,
-            onSaved = { saved ->
+            barcode = s.barcode,
+            onSaved = { message ->
                 home()
-                scope.launch { snackbar.showSnackbar("Logged ${saved.foodName}") }
+                scope.launch { snackbar.showSnackbar(message) }
             },
             onDeleted = { deleted: LogEntry ->
                 home()
@@ -110,6 +138,7 @@ private fun AppRoot() {
                     if (r == SnackbarResult.ActionPerformed) FoodApp.app.user.log().insert(deleted)
                 }
             },
+            onRelink = { code -> push(Screen.Search(s.date, s.meal, linkBarcode = code)) },
             onBack = ::pop,
         )
     }

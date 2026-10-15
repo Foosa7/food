@@ -13,6 +13,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -52,6 +53,8 @@ fun SearchScreen(
     date: LocalDate,
     meal: Meal,
     catalog: Catalog,
+    /** Set when an unknown barcode was scanned: the pick links it. */
+    linkBarcode: String? = null,
     onPick: (String) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -79,6 +82,17 @@ fun SearchScreen(
         },
     ) { pad ->
         Column(Modifier.padding(pad).fillMaxSize().imePadding()) {
+            if (linkBarcode != null) {
+                Card(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text("New barcode $linkBarcode", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            "Search for the food it is, e.g. \"kefir 3\". You'll name the product and set its usual portion next.",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+            }
             TextField(
                 value = query,
                 onValueChange = { query = it },

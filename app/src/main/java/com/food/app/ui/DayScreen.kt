@@ -25,6 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -39,11 +40,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.food.app.FoodApp
+import com.food.app.R
 import com.food.app.data.Catalog
 import com.food.app.data.LogEntry
 import com.food.core.FoodsSchema
@@ -69,6 +72,7 @@ fun DayScreen(
     snackbar: SnackbarHostState,
     onDate: (LocalDate) -> Unit,
     onAdd: (Meal?) -> Unit,
+    onScan: () -> Unit,
     onOpen: (LogEntry) -> Unit,
 ) {
     val app = FoodApp.app
@@ -106,11 +110,16 @@ fun DayScreen(
             )
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { onAdd(null) },
-                icon = { Icon(Icons.Filled.Add, null) },
-                text = { Text("Add food") },
-            )
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SmallFloatingActionButton(onClick = onScan) {
+                    Icon(painterResource(R.drawable.ic_barcode), "Scan a barcode")
+                }
+                ExtendedFloatingActionButton(
+                    onClick = { onAdd(null) },
+                    icon = { Icon(Icons.Filled.Add, null) },
+                    text = { Text("Add food") },
+                )
+            }
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { pad ->
