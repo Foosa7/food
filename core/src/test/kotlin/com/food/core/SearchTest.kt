@@ -53,6 +53,11 @@ class SearchTest {
         assertEquals("Våffla m. ägg", top("våffla med ägg").first())
     }
 
+    @Test fun `knäckebröd finds hårt bröd`() {
+        assertTrue("Hårt bröd fullkorn råg fibrer ca 13%" in top("knäckebröd"))
+        assertTrue("Hårt bröd fullkorn råg fibrer ca 13%" in top("knäckebröd råg"))
+    }
+
     @Test fun `numbers match whole, with a decimal comma`() {
         assertEquals(listOf("Mjölk fett 3% berikad"), top("mjölk 3"))
         assertEquals(listOf("Mjölk fett 0,5% berikad"), top("mjölk 0,5"))

@@ -39,5 +39,8 @@ class RealSearchTest {
         expect("kefir", 1) { it.startsWith("Kefir") }
         expect("mjölk 3", 3) { it.startsWith("Mjölk") && "3%" in it }
         expect("oat drink", 3) { it.startsWith("Havredryck") }
+        expect("knäckebröd", 5) { it.startsWith("Hårt bröd") }
+        expect("husman", 1) { "Husman" in it }
+        expect("rutknäcke", 1) { "rutknäcke" in it }
     }
 }

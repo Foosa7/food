@@ -13,8 +13,8 @@ android {
         applicationId = "com.food.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2"
+        versionCode = 3
+        versionName = "0.3"
     }
 
     buildTypes {
@@ -74,6 +74,11 @@ dependencies {
     implementation("androidx.camera:camera-view:1.4.1")
     implementation("androidx.camera:camera-mlkit-vision:1.4.1")
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
+    // CameraX hands back ListenableFutures; Health Connect pulls in an empty stand-in for them.
+    implementation("com.google.guava:guava:33.3.1-android")
+
+    // Activity (steps, calories burned) from Fitbit via Health Connect. 1.1.0 stable needs compileSdk 36.
+    implementation("androidx.health.connect:connect-client:1.1.0-beta01")
 
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")

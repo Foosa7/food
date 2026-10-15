@@ -5,9 +5,7 @@ import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import com.food.core.Food
 import com.food.core.FoodNutrient
-import com.food.core.FoodSearch
 import com.food.core.FoodsSchema
-import com.food.core.SearchItem
 import com.food.core.Source
 import java.io.File
 
@@ -19,12 +17,6 @@ data class FoodRow(
     val group: String?,
     val kcal: Double?,
 )
-
-/** Everything loaded once at start, for instant search. */
-class Catalog(val rows: List<FoodRow>, val meta: Map<String, String>) {
-    val byId = rows.associateBy { it.id }
-    val search = FoodSearch(rows.map { SearchItem(it.id, it.nameSv, it.nameEn, it.group) })
-}
 
 /**
  * The read-only reference database (foods.db), bundled as an asset. It's copied to the app's
@@ -54,8 +46,8 @@ class FoodsDb(private val ctx: Context) {
         return file
     }
 
-    /** Call off the main thread: the first call installs the database. */
-    fun catalog(): Catalog {
+    /** Every listed food, for search. Call off the main thread: the first call installs the database. */
+    fun rows(): List<FoodRow> {
         val kcal = HashMap<String, Double>()
         db.rawQuery("SELECT food_id, value FROM food_nutrient WHERE nutrient = 'ENERC_KCAL'", null).use { c ->
             while (c.moveToNext()) kcal[c.getString(0)] = c.getDouble(1)
@@ -70,13 +62,17 @@ class FoodsDb(private val ctx: Context) {
                 }
             }
         }
+        return rows
+    }
+
+    fun meta(): Map<String, String> {
         val meta = db.rawQuery("SELECT key, value FROM meta", null).use { c ->
             buildMap { while (c.moveToNext()) put(c.getString(0), c.getString(1)) }
         }
         check(meta[FoodsSchema.Meta.SCHEMA] == FoodsSchema.VERSION.toString()) {
             "foods.db schema ${meta[FoodsSchema.Meta.SCHEMA]}, the app expects ${FoodsSchema.VERSION}"
         }
-        return Catalog(rows, meta)
+        return meta
     }
 
     /** Includes removed foods, so old log entries still open. */

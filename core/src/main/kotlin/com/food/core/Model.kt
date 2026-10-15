@@ -15,6 +15,8 @@ enum class Source(val code: String) {
 /** `lv:142`, `usda:171287`, `my:12`: one id space for every food the app can log. */
 object FoodId {
     fun lv(nummer: Int) = "lv:$nummer"
+    fun custom(id: Long) = "my:$id"
+    fun customId(foodId: String): Long? = foodId.removePrefix("my:").takeIf { foodId.startsWith("my:") }?.toLongOrNull()
 }
 
 data class Food(

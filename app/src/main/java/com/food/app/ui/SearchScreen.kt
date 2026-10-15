@@ -20,6 +20,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
@@ -56,6 +57,8 @@ fun SearchScreen(
     /** Set when an unknown barcode was scanned: the pick links it. */
     linkBarcode: String? = null,
     onPick: (String) -> Unit,
+    /** Make a food from a package label, starting with what was typed. */
+    onCreate: (name: String) -> Unit,
     onBack: () -> Unit,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
@@ -108,7 +111,7 @@ fun SearchScreen(
             val label = when {
                 query.isBlank() && results.isEmpty() -> "Foods you log will show up here."
                 query.isBlank() -> "Recent"
-                results.isEmpty() -> "No match. Try fewer words, or the English name."
+                results.isEmpty() -> "No match. Try fewer words or the English name, or add it from its label below."
                 else -> null
             }
             if (label != null) Text(
@@ -119,6 +122,11 @@ fun SearchScreen(
             )
             LazyColumn {
                 items(results, key = { it.id }) { row -> FoodRowItem(row) { onPick(row.id) } }
+                item {
+                    TextButton(onClick = { onCreate(query.trim()) }, modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
+                        Text("Not here? Add a food from its label")
+                    }
+                }
             }
         }
     }

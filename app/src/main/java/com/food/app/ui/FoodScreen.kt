@@ -55,10 +55,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.food.app.FoodApp
 import com.food.app.data.Barcode
+import com.food.app.data.Catalog
 import com.food.app.data.LogEntry
 import com.food.core.AmountUnit
 import com.food.core.Amounts
 import com.food.core.Food
+import com.food.core.FoodId
 import com.food.core.FoodNutrient
 import com.food.core.Lv
 import com.food.core.Meal
@@ -94,9 +96,11 @@ fun FoodScreen(
     initialMeal: Meal,
     entryId: Long?,
     barcode: String?,
+    catalog: Catalog,
     onSaved: (message: String) -> Unit,
     onDeleted: (LogEntry) -> Unit,
     onRelink: (String) -> Unit,
+    onEditFood: (customId: Long) -> Unit,
     onBack: () -> Unit,
 ) {
     val app = FoodApp.app
@@ -109,7 +113,8 @@ fun FoodScreen(
     var initialised by rememberSaveable { mutableStateOf(false) }
     var detail by remember { mutableStateOf<Pair<NutrientDef, FoodNutrient?>?>(null) }
 
-    LaunchedEffect(foodId, entryId) {
+    // Reloads when a label food is edited (the catalog changes then).
+    LaunchedEffect(foodId, entryId, catalog.version) {
         loaded = withContext(Dispatchers.IO) {
             val entry = entryId?.let { app.user.log().get(it) }
             Loaded(
@@ -183,6 +188,9 @@ fun FoodScreen(
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
                 title = { Text(if (entryId == null) "Add food" else "Edit entry") },
                 actions = {
+                    FoodId.customId(foodId)?.let { id ->
+                        if (l?.food != null) TextButton(onClick = { onEditFood(id) }) { Text("Edit food") }
+                    }
                     val entry = l?.entry
                     if (entry != null) IconButton(onClick = {
                         scope.launch {
@@ -268,9 +276,10 @@ private fun Header(food: Food?, name: String) {
         Text(name, style = MaterialTheme.typography.titleLarge)
         food?.nameEn?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         if (food != null) {
-            val kind = when (food.lvType) {
-                "Analyserat" -> "analysed"
-                "Beräknat" -> "calculated from a recipe"
+            val kind = when {
+                food.source == Source.LABEL -> listOfNotNull("from a label", food.note?.replaceFirstChar { it.lowercase() }).joinToString(", ")
+                food.lvType == "Analyserat" -> "analysed"
+                food.lvType == "Beräknat" -> "calculated from a recipe"
                 else -> food.lvType
             }
             Text(
@@ -495,15 +504,25 @@ private fun Attribution(food: Food) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        food.note?.let {
+        if (food.source == Source.LV) {
+            food.note?.let {
+                Spacer(Modifier.height(8.dp))
+                Text("Analysed: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             Spacer(Modifier.height(8.dp))
-            Text("Analysed: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                "Source: ${Lv.ATTRIBUTION} (${Lv.LICENSE}), food #${food.sourceId}.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Values tagged label are from the package. Values tagged LV come from the base food, " +
+                    "${Lv.ATTRIBUTION} (${Lv.LICENSE}).",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "Source: ${Lv.ATTRIBUTION} (${Lv.LICENSE}), food #${food.sourceId}.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }

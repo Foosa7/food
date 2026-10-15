@@ -11,7 +11,8 @@ data class SearchItem(val id: String, val nameSv: String, val nameEn: String?, v
  * - Diacritics are folded, so "agg" finds "Ägg".
  * - Every word of the query has to match a word of the name (any order).
  * - Compounds are split the way Livsmedelsverket writes them: "rågbröd" finds "Bröd råg".
- * - A few everyday words map to the database's: "havremjölk" → "havredryck", "med" → "m".
+ * - A few everyday words map to the database's: "havremjölk" → "havredryck",
+ *   "knäckebröd" → "hårt bröd", "med" → "m".
  * - Exact words beat prefixes beat substrings; the name's first word and short names rank
  *   higher; foods you log often get a boost.
  */
@@ -90,7 +91,7 @@ class FoodSearch(items: List<SearchItem>) {
         return Name(tokens, tokens.joinToString(" "))
     }
 
-    private fun queryTokens(query: String) = Text.tokens(query).map { SYNONYMS[it] ?: it }
+    private fun queryTokens(query: String) = Text.tokens(query).flatMap { SYNONYMS[it] ?: listOf(it) }.distinct()
 
     companion object {
         private const val EXACT = 10.0
@@ -104,13 +105,16 @@ class FoodSearch(items: List<SearchItem>) {
 
         /** Everyday words → the words Livsmedelsverket uses. Keys and values are folded. */
         private val SYNONYMS = mapOf(
-            "havremjolk" to "havredryck",
-            "sojamjolk" to "sojadryck",
-            "mandelmjolk" to "mandeldryck",
-            "rismjolk" to "risdryck",
-            "med" to "m",
-            "utan" to "u",
-            "och" to "o",
+            "havremjolk" to listOf("havredryck"),
+            "sojamjolk" to listOf("sojadryck"),
+            "mandelmjolk" to listOf("mandeldryck"),
+            "rismjolk" to listOf("risdryck"),
+            "knackebrod" to listOf("hart", "brod"),
+            "knacke" to listOf("hart", "brod"),
+            "crispbread" to listOf("crisp", "bread"),
+            "med" to listOf("m"),
+            "utan" to listOf("u"),
+            "och" to listOf("o"),
         )
 
         /** Up to about +5.5 for a food logged 15 times. */

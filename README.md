@@ -6,6 +6,8 @@ Work in progress. Done so far:
 
 - **(a)** the Livsmedelsverket sync to SQLite
 - **(b)** the app: search Swedish and English names, log food by gram or ml to a meal, and see a day's energy and macros, with every nutrient of a food and where each value came from
+- **(c)** every nutrient against your **NNR 2023** targets (this day or a 7-day average), with low / over flags and where each nutrient came from; a profile with every field and target editable; activity (steps, calories burned) from Fitbit via Health Connect; history with weekly averages; export to JSON + SQLite
+- foods from a package label, optionally based on a database food for the micronutrients the label doesn't list
 - **(d)** barcode scanning (EAN-13/EAN-8, offline): a known product logs in one tap with its usual portion; an unknown one is linked to a database food, with your name for it, as you log it
 
 ## Data
@@ -19,6 +21,8 @@ Some rules the data needs:
 - **Vitamin A:** given as retinol equivalents (`VITA_RE`), which differ from USDA's RAE.
 - **Assumed zeros:** "Logisk nolla" values are flagged as assumed, not measured.
 - **Missing values:** a food with no value for a nutrient is unknown, not zero.
+
+Targets follow the Nordic Nutrition Recommendations 2023 (Blomhoff et al., Nord 2023:003): energy from NNR's Henry equations × activity level, macronutrient ranges in % of energy, and the RI/AI, average requirements and upper limits for vitamins and minerals. Vitamin A is in retinol equivalents in both NNR and the database. A total that leaves out foods with no value is shown as "≥".
 
 [`data/report-lv.md`](data/report-lv.md) shows the coverage for every nutrient and what Livsmedelsverket doesn't have (vitamin K, B5, biotin, copper, manganese and more). Those gaps will be filled from USDA FoodData Central, and only through matches reviewed by hand.
 

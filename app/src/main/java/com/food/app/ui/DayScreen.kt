@@ -2,6 +2,7 @@ package com.food.app.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -15,9 +16,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -49,6 +53,7 @@ import com.food.app.FoodApp
 import com.food.app.R
 import com.food.app.data.Catalog
 import com.food.app.data.LogEntry
+import com.food.app.data.TargetsState
 import com.food.core.FoodsSchema
 import com.food.core.Lv
 import com.food.core.Meal
@@ -69,18 +74,24 @@ private val SUMMARY = listOf("ENERC_KCAL", "PROT", "FAT", "CHO_AVAIL", "FIBT")
 fun DayScreen(
     date: LocalDate,
     catalog: Catalog,
+    targets: TargetsState?,
     snackbar: SnackbarHostState,
     onDate: (LocalDate) -> Unit,
     onAdd: (Meal?) -> Unit,
     onScan: () -> Unit,
     onOpen: (LogEntry) -> Unit,
+    onNutrients: () -> Unit,
+    onHistory: () -> Unit,
+    onProfile: () -> Unit,
+    onExport: () -> Unit,
 ) {
     val app = FoodApp.app
     val entries by remember(date) { app.user.log().day(date.toString()) }.collectAsStateWithLifecycle(emptyList())
-    val values by produceState(emptyMap<String, Map<String, Double>>(), entries) {
+    val values by produceState(emptyMap<String, Map<String, Double>>(), entries, catalog.version) {
         value = withContext(Dispatchers.IO) { app.foods.values(entries.map { it.foodId }, SUMMARY) }
     }
     var about by rememberSaveable { mutableStateOf(false) }
+    var menu by remember { mutableStateOf(false) }
     val today = LocalDate.now()
 
     fun totals(list: List<LogEntry>) = Totals.of(list.map { Portion(it.foodId, it.grams) }, values, SUMMARY)
@@ -105,7 +116,16 @@ fun DayScreen(
                     IconButton(onClick = { onDate(date.plusDays(1)) }) {
                         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Next day")
                     }
-                    IconButton(onClick = { about = true }) { Icon(Icons.Filled.Info, "About") }
+                    Box {
+                        IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "Menu") }
+                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            DropdownMenuItem(text = { Text("All nutrients") }, onClick = { menu = false; onNutrients() })
+                            DropdownMenuItem(text = { Text("History") }, onClick = { menu = false; onHistory() })
+                            DropdownMenuItem(text = { Text("Profile & targets") }, onClick = { menu = false; onProfile() })
+                            DropdownMenuItem(text = { Text("Export my data") }, onClick = { menu = false; onExport() })
+                            DropdownMenuItem(text = { Text("About the data") }, onClick = { menu = false; about = true })
+                        }
+                    }
                 },
             )
         },
@@ -124,7 +144,7 @@ fun DayScreen(
         snackbarHost = { SnackbarHost(snackbar) },
     ) { pad ->
         LazyColumn(contentPadding = PaddingValues(top = pad.calculateTopPadding(), bottom = 96.dp)) {
-            item { Summary(totals(entries), entries.isEmpty()) }
+            item { Summary(totals(entries), entries.isEmpty(), targets, onNutrients, onProfile) }
             for (meal in Meal.entries) {
                 val inMeal = entries.filter { it.meal == meal.code }
                 item(key = meal.code) { MealHeader(meal, totals(inMeal), inMeal.isNotEmpty()) { onAdd(meal) } }
@@ -137,15 +157,28 @@ fun DayScreen(
 }
 
 @Composable
-private fun Summary(t: Map<String, Total>, empty: Boolean) {
-    Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+private fun Summary(t: Map<String, Total>, empty: Boolean, targets: TargetsState?, onNutrients: () -> Unit, onProfile: () -> Unit) {
+    Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).clickable(onClick = onNutrients)) {
         Column(Modifier.padding(16.dp)) {
             val kcal = t.getValue("ENERC_KCAL")
-            Text(
-                "${atLeast(kcal)}${Format.kcal(kcal.value)} kcal",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
+            val target = targets?.targets?.get("ENERC_KCAL")?.target
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    "${atLeast(kcal)}${Format.kcal(kcal.value)} kcal",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                if (target != null) Text("  of ${Format.kcal(target)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (target != null && target > 0) {
+                LinearProgressIndicator(
+                    progress = { (kcal.value / target).toFloat().coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                )
+            }
+            if (targets == null) {
+                TextButton(onClick = onProfile, contentPadding = PaddingValues(0.dp)) { Text("Set up your profile for NNR targets") }
+            }
             if (empty) {
                 Text("Nothing logged yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
@@ -156,6 +189,12 @@ private fun Summary(t: Map<String, Total>, empty: Boolean) {
                     Macro("Carbs", t.getValue("CHO_AVAIL"))
                     Macro("Fibre", t.getValue("FIBT"))
                 }
+                Text(
+                    "All nutrients ›",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
             }
         }
     }
