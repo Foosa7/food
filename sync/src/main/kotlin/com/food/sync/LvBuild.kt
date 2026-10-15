@@ -15,7 +15,7 @@ import java.time.Instant
 /** Rebuilds foods.db from the raw cache, from scratch, so the result never depends on history. */
 object LvBuild {
 
-    data class Result(val foods: List<ImportedFood>, val listed: Int, val out: File)
+    data class Result(val foods: List<ImportedFood>, val listed: Int, val out: File, val syncedAt: Instant)
 
     fun run(cache: File, out: File, now: Instant = Instant.now()): Result {
         val listed = readFoods(File(cache, "list-sv.json")).map { it.nummer }.toSet()
@@ -44,7 +44,10 @@ object LvBuild {
             write(db, foods, listed.size, now)
         }
         check(tmp.renameTo(out)) { "could not write $out" }
-        return Result(foods, listed.size, out)
+        // The app reads this small file to tell whether its bundled foods.db is newer than the one
+        // on the phone, without opening a 14 MB database.
+        File(out.parentFile, "foods.version").writeText(now.toString())
+        return Result(foods, listed.size, out, now)
     }
 
     private fun write(db: Connection, foods: List<ImportedFood>, listed: Int, now: Instant) {

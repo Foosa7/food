@@ -28,6 +28,24 @@ object Lv {
     fun parseNutrients(body: String): List<LvNutrient> = json.decodeFromString(body)
     fun parseClasses(body: String): List<LvClass> = json.decodeFromString(body)
 
+    /** Livsmedelsverket's value types (vardetypkod), in English, for "where did this number come from". */
+    val VALUE_TYPES = mapOf(
+        "BE" to "Best estimate",
+        "LZ" to "Logical zero: assumed, not measured",
+        "MN" to "Mean of analyses",
+        "AV" to "Average",
+        "W" to "Weighted value",
+        "MD" to "Median",
+        "BL" to "Not detected",
+        "TR" to "Trace",
+        "BQ" to "Below the quantification limit",
+        "AR" to "Reported",
+        "MX" to "Maximum",
+        "E" to "Other value type",
+        "N" to "Unknown",
+        "X" to "Unknown value type",
+    )
+
     /** The "Huvudgrupp" classification, e.g. "Naturell fil yoghurt". */
     fun mainGroup(classes: List<LvClass>): String? = classes.firstOrNull { it.typ == "Huvudgrupp" }?.kod
 }

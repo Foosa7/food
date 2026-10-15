@@ -2,7 +2,10 @@
 
 A personal food and nutrition tracker for Android, built around Swedish groceries. It tracks energy, macros and every micronutrient, compared with the Nordic Nutrition Recommendations 2023, and it works offline.
 
-Work in progress. Done so far: **milestone (a), the Livsmedelsverket sync**.
+Work in progress. Done so far:
+
+- **(a)** the Livsmedelsverket sync to SQLite
+- **(b)** the app: search Swedish and English names, log food by gram or ml to a meal, and see a day's energy and macros, with every nutrient of a food and where each value came from
 
 ## Data
 
@@ -25,6 +28,7 @@ JDK 17:
 ```
 ./gradlew test                       # unit tests for parsing and the nutrient rules
 ./gradlew :sync:run --args="lv"      # fetch what changed, rebuild data/foods.db and the report
+./gradlew :app:assembleDebug         # app/build/outputs/apk/debug/app-debug.apk (needs data/foods.db and the Android SDK)
 ```
 
 The first sync downloads every food (about a minute and a half). Later syncs only fetch foods whose `version` changed. Raw responses are cached in `data/raw/lv` and the database is always rebuilt from that cache.
@@ -33,3 +37,4 @@ The first sync downloads every food (about a minute and a half). Later syncs onl
 
 - `core/`: pure Kotlin: the nutrient catalog, Livsmedelsverket parsing, the foods.db schema and all the rules. Shared by the sync tool and the app.
 - `sync/`: the command-line tool that builds foods.db.
+- `app/`: the Android app (Kotlin, Jetpack Compose, Room). It bundles foods.db read-only; your log lives in a separate `user.db` on the phone and never leaves it.

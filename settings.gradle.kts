@@ -14,4 +14,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "food"
-include(":core", ":sync")
+include(":core", ":sync", ":app")
