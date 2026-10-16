@@ -9,9 +9,11 @@ import com.food.core.Analysis
 import com.food.core.DietDigest
 import com.food.core.DigestDay
 import com.food.core.DigestFood
+import com.food.core.DigestFoodInfo
 import com.food.core.DigestInput
 import com.food.core.Meal
 import com.food.core.Portion
+import com.food.core.Source
 import com.food.core.Totals
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -100,9 +102,21 @@ object Analyst {
             val days = entries.groupBy { it.date }.map { (date, list) ->
                 DigestDay(
                     LocalDate.parse(date),
-                    list.map { DigestFood(Meal.of(it.meal), it.foodName, it.grams, catalog.fermented(it.foodId, it.foodName)) },
+                    list.map { DigestFood(Meal.of(it.meal), it.foodName, it.grams, catalog.fermented(it.foodId, it.foodName), it.foodId) },
                     Totals.of(list.map { Portion(it.foodId, it.grams) }, values),
                 )
+            }
+            // Each food once: what it is, where its numbers come from, and every value per 100 g.
+            val foods = entries.map { it.foodId }.distinct().associateWith { id ->
+                val f = app.foods.food(id)
+                val name = f?.let { it.nameSv + (it.nameEn?.let { en -> " ($en)" }.orEmpty()) } ?: entries.first { it.foodId == id }.foodName
+                val source = when {
+                    f == null -> "no longer in the database"
+                    f.source == Source.LABEL -> "their own food from a package label" +
+                        (f.note?.removePrefix("Based on ")?.let { "; what the label doesn't list comes from Livsmedelsverket's \"$it\"" }.orEmpty())
+                    else -> "Livsmedelsverket food ${f.sourceId}" + (f.lvType?.let { ", ${if (it.startsWith("Ber")) "calculated" else "analysed"}" }.orEmpty())
+                }
+                DigestFoodInfo(name, source, values[id].orEmpty())
             }
             DigestInput(
                 today = today,
@@ -110,6 +124,8 @@ object Analyst {
                 energyNote = targets?.energy?.how,
                 targets = targets?.targets,
                 days = days,
+                foods = foods,
+                nnr = targets?.nnr,
                 goals = AiSettings.goals(ctx),
                 notes = earlier.lastOrNull()?.notes.orEmpty(),
                 earlier = earlier.takeLast(5).map { it.at.replace('T', ' ') to it.progress },
@@ -118,9 +134,13 @@ object Analyst {
 
     private val SYSTEM = """
         You are a sharp, friendly nutrition coach. You read one person's food log from their Swedish
-        tracker app: every food with its weight, every macro- and micronutrient per day and per week,
-        and their targets from the Nordic Nutrition Recommendations 2023 (NNR). Nutrient values come
-        from Livsmedelsverket's food database.
+        tracker app. You get all of it: what the Nordic Nutrition Recommendations 2023 (NNR) say an
+        adult of their sex, age, size and activity needs, nutrient by nutrient; weekly averages of
+        every macro- and micronutrient; for every nutrient, which foods it came from and how much;
+        every food they ate with all its values per 100 g; and the last two weeks portion by portion
+        with what each portion gave. Values come from Livsmedelsverket's food database, or from a
+        package label for their own foods. Use these numbers rather than general knowledge about
+        foods: they are what this person actually ate.
 
         How to read the data:
         - A day that isn't logged is unknown, never zero. A logged day with very little energy was
@@ -130,6 +150,8 @@ object Analyst {
           trends between weeks, not single days.
         - "[fermented]" marks foods with live cultures; fibre and fermented servings together are
           their gut-food count.
+        - When you name a gap or an excess, name the foods behind it from "Where each nutrient comes
+          from", and when you suggest a food, say what it would add in numbers.
 
         What to write: short and specific. Name foods they already eat. Prefer small swaps and
         additions over overhauls. Their own aim comes first if they wrote one. No diagnoses; only
