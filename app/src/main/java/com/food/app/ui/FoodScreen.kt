@@ -132,8 +132,10 @@ fun FoodScreen(
             val l = loaded
             val known = l?.mapping?.takeIf { it.foodId == foodId }
             val amount = l?.entry?.amount ?: known?.amount ?: l?.last?.amount
-            amountText = amount?.let(Format::amount) ?: "100"
-            unit = l?.entry?.unit ?: known?.unit ?: l?.last?.unit ?: AmountUnit.G.code
+            // A food sold in pieces starts at one piece.
+            val pieces = l?.food?.pieceG != null
+            amountText = amount?.let(Format::amount) ?: if (pieces) "1" else "100"
+            unit = l?.entry?.unit ?: known?.unit ?: l?.last?.unit ?: if (pieces) AmountUnit.PIECE.code else AmountUnit.G.code
             label = l?.mapping?.label.orEmpty()
             initialised = true
         }
@@ -141,7 +143,9 @@ fun FoodScreen(
 
     val l = loaded
     val amount = Format.parseAmount(amountText)
-    val grams = amount?.let { Amounts.grams(it, AmountUnit.of(unit)) }
+    val pieceG = l?.food?.pieceG
+    // A piece count for a food that no longer has a piece weight can't be turned into grams.
+    val grams = amount?.takeIf { unit != AmountUnit.PIECE.code || pieceG != null }?.let { Amounts.grams(it, AmountUnit.of(unit), pieceG) }
     val name = l?.food?.nameSv ?: l?.entry?.foodName ?: ""
     val known = barcode != null && l?.mapping?.foodId == foodId
     val linking = barcode != null && !known && entryId == null
@@ -219,7 +223,8 @@ fun FoodScreen(
                 AmountRow(
                     amountText = amountText, onAmount = { amountText = it },
                     unit = unit, onUnit = { unit = it },
-                    valid = amount != null,
+                    valid = grams != null,
+                    pieceG = pieceG,
                 )
             }
             item { MealChips(meal) { meal = it } }
@@ -343,7 +348,8 @@ private fun BarcodeCard(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AmountRow(amountText: String, onAmount: (String) -> Unit, unit: String, onUnit: (String) -> Unit, valid: Boolean) {
+private fun AmountRow(amountText: String, onAmount: (String) -> Unit, unit: String, onUnit: (String) -> Unit, valid: Boolean, pieceG: Double?) {
+    val units = AmountUnit.entries.filter { it != AmountUnit.PIECE || pieceG != null }
     Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         OutlinedTextField(
             value = amountText,
@@ -356,14 +362,22 @@ private fun AmountRow(amountText: String, onAmount: (String) -> Unit, unit: Stri
         )
         Spacer(Modifier.width(12.dp))
         SingleChoiceSegmentedButtonRow {
-            AmountUnit.entries.forEachIndexed { i, u ->
+            units.forEachIndexed { i, u ->
                 SegmentedButton(
                     selected = unit == u.code,
                     onClick = { onUnit(u.code) },
-                    shape = SegmentedButtonDefaults.itemShape(i, AmountUnit.entries.size),
+                    shape = SegmentedButtonDefaults.itemShape(i, units.size),
                 ) { Text(u.code) }
             }
         }
+    }
+    if (unit == AmountUnit.PIECE.code && pieceG != null) {
+        Text(
+            "1 piece is ${Format.value(pieceG)} g.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
     }
     if (unit == AmountUnit.ML.code) {
         Text(

@@ -56,4 +56,9 @@ class NutritionTest {
         assertEquals(Meal.SNACK, Meal.at(LocalTime.of(23, 10)))
         assertEquals(Meal.SNACK, Meal.of("nonsense"))
     }
+
+    @Test fun `pieces turn into grams by the food's piece weight`() {
+        assertEquals(2.0, Amounts.grams(2.0, AmountUnit.PIECE, 1.0), 1e-9)
+        assertEquals(AmountUnit.PIECE, AmountUnit.of("st"))
+    }
 }

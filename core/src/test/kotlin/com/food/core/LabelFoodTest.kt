@@ -39,4 +39,18 @@ class LabelFoodTest {
         assertEquals(7L, FoodId.customId("my:7"))
         assertEquals(null, FoodId.customId("lv:7"))
     }
+
+    @Test fun `a supplement's unlisted nutrients are assumed zeros, so totals stay complete`() {
+        // One capsule typed as 1 g: 150 mg magnesium, 10 mg zinc, 3.7 mg B6 per capsule.
+        val rows = LabelFood.merge("my:3", mapOf("MG" to 15000.0, "ZN" to 1000.0, "VITB6" to 370.0), emptyList(), null, supplement = true)
+        val by = rows.associateBy { it.nutrient }
+        assertEquals(Nutrients.ALL.size, rows.size)
+        assertEquals(15000.0, by.getValue("MG").valuePer100g, 1e-9)
+        assertTrue(by.getValue("ENERC_KCAL").logicalZero)
+        val day = Totals.of(listOf(Portion("my:3", 1.0)), mapOf("my:3" to rows.associate { it.nutrient to it.valuePer100g }))
+        assertEquals(150.0, day.getValue("MG").value, 1e-9)
+        assertTrue(day.getValue("ENERC_KCAL").complete)
+        // A food that isn't a supplement still says unknown.
+        assertEquals(3, LabelFood.merge("my:4", mapOf("MG" to 1.0, "ZN" to 1.0, "VITB6" to 1.0), emptyList(), null).size)
+    }
 }

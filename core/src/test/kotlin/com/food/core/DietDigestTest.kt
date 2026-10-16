@@ -167,4 +167,12 @@ class DietDigestTest {
         val text = DietDigest.build(input.copy(targets = edited))
         assertTrue(text, text.contains("- Vitamin D: RI 20 µg a day, AR 7.5, UL 100. 20 µg/d with little or no sun exposure. They set this themselves; NNR's own value is RI 10 µg a day, AR 7.5, UL 100."))
     }
+
+    @Test fun `a supplement says so, with the pieces taken`() {
+        val capsule = DigestFood(Meal.SNACK, "Myprotein Zinc & Magnesium", 1.0, false, "my:3", amount = "1 st", supplement = true) to
+            mapOf("MG" to 15000.0, "ZN" to 1000.0, "VITB6" to 370.0, "ENERC_KCAL" to 0.0)
+        val text = DietDigest.build(input.copy(days = input.days + day("2026-10-16", capsule), foods = input.foods + info(capsule)))
+        assertTrue(text, text.contains("- Snack · Myprotein Zinc & Magnesium 1 st (1 g) [supplement]: Energy 0 kcal · Vitamin B6 3.7 mg · Magnesium 150 mg · Zinc 10 mg"))
+        assertTrue(text.contains("logged 1 time, 1 g in all · a supplement"))
+    }
 }

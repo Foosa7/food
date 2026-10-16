@@ -75,6 +75,12 @@ data class CustomFood(
     @ColumnInfo(name = "base_food_id") val baseFoodId: String?,
     /** Has live cultures (kimchi, kefir…), for the gut count; the name rule catches most anyway. */
     @ColumnInfo(defaultValue = "0") val fermented: Boolean = false,
+    /** What one piece weighs (a capsule, a tablet), for foods logged in pieces. */
+    @ColumnInfo(name = "piece_g") val pieceG: Double? = null,
+    /** The label's values were typed per piece rather than per 100 g (they're stored per 100 g either way). */
+    @ColumnInfo(name = "per_piece", defaultValue = "0") val perPiece: Boolean = false,
+    /** A supplement: nutrients its label doesn't list count as zero. */
+    @ColumnInfo(defaultValue = "0") val supplement: Boolean = false,
     @ColumnInfo(name = "created_at") val createdAt: Long,
     @ColumnInfo(name = "updated_at") val updatedAt: Long,
 )
@@ -222,9 +228,9 @@ interface LogDao {
 /** user.db: everything the user enters. Never shipped, never in git. */
 @Database(
     entities = [LogEntry::class, Barcode::class, CustomFood::class, CustomFoodNutrient::class, ProfileRow::class, TargetEditRow::class],
-    version = 4,
+    version = 5,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4)],
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4), AutoMigration(from = 4, to = 5)],
 )
 abstract class UserDb : RoomDatabase() {
     abstract fun log(): LogDao

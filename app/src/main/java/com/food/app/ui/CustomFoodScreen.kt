@@ -19,6 +19,9 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -77,6 +80,9 @@ fun CustomFoodScreen(
     var name by rememberSaveable { mutableStateOf(initialName) }
     var baseId by rememberSaveable { mutableStateOf<String?>(null) }
     var fermented by rememberSaveable { mutableStateOf(false) }
+    var supplement by rememberSaveable { mutableStateOf(false) }
+    var pieceText by rememberSaveable { mutableStateOf("") }
+    var perPiece by rememberSaveable { mutableStateOf(false) }
     val fields = remember { mutableStateMapOf<String, String>() }
     var existing by remember { mutableStateOf<CustomFood?>(null) }
     var more by rememberSaveable { mutableStateOf(false) }
@@ -90,15 +96,23 @@ fun CustomFoodScreen(
         }
         existing = f
         if (f != null) {
-            name = f.name; baseId = f.baseFoodId; fermented = f.fermented
-            values.forEach { fields[it.nutrient] = Format.value(it.value) }
+            name = f.name; baseId = f.baseFoodId; fermented = f.fermented; supplement = f.supplement
+            pieceText = f.pieceG?.let(Format::value).orEmpty()
+            perPiece = f.perPiece && f.pieceG != null
+            // Stored per 100 g; shown the way they were typed.
+            val shown = if (perPiece) f.pieceG!! / 100 else 1.0
+            values.forEach { fields[it.nutrient] = Format.value(it.value * shown) }
             if (values.any { it.nutrient !in LabelFood.LABEL_FIELDS }) more = true
         }
     }
 
+    val pieceG = Format.parseAmount(pieceText)
+    val typedPerPiece = perPiece && pieceG != null
     val parsed = fields.mapNotNull { (k, v) -> v.trim().replace(',', '.').toDoubleOrNull()?.takeIf { it >= 0 }?.let { k to it } }.toMap()
-    val hasEnergy = "ENERC_KCAL" in parsed || "ENERC_KJ" in parsed || baseId != null
-    val valid = name.isNotBlank() && hasEnergy
+    // Stored per 100 g, whichever way they were typed.
+    val per100 = if (typedPerPiece) parsed.mapValues { it.value * 100 / pieceG!! } else parsed
+    val hasEnergy = "ENERC_KCAL" in parsed || "ENERC_KJ" in parsed || baseId != null || supplement
+    val valid = name.isNotBlank() && hasEnergy && (pieceText.isBlank() || pieceG != null)
 
     fun save() {
         if (!valid) return
@@ -106,8 +120,11 @@ fun CustomFoodScreen(
         scope.launch {
             val id = withContext(Dispatchers.IO) {
                 val f = (existing ?: CustomFood(name = name.trim(), baseFoodId = baseId, createdAt = now, updatedAt = now))
-                    .copy(name = name.trim(), baseFoodId = baseId, fermented = fermented, updatedAt = now)
-                app.user.customFoods().save(f, parsed)
+                    .copy(
+                        name = name.trim(), baseFoodId = baseId, fermented = fermented, supplement = supplement,
+                        pieceG = pieceG, perPiece = typedPerPiece, updatedAt = now,
+                    )
+                app.user.customFoods().save(f, per100)
             }
             onSaved(FoodId.custom(id))
         }
@@ -160,7 +177,36 @@ fun CustomFoodScreen(
                 }
             }
             item {
-                Text("Per 100 g, as on the label", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 16.dp, top = 16.dp))
+                Row(
+                    Modifier.fillMaxWidth().clickable { supplement = !supplement }.padding(horizontal = 4.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Checkbox(checked = supplement, onCheckedChange = { supplement = it })
+                    Column {
+                        Text("A supplement")
+                        Text(
+                            "Capsules, tablets, powders. What the label doesn't list counts as zero.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                OutlinedTextField(
+                    value = pieceText, onValueChange = { pieceText = it },
+                    label = { Text("One piece weighs (optional)") },
+                    placeholder = { Text("e.g. 1 for a capsule") },
+                    supportingText = { Text("Lets you log it in pieces. A guess is fine for a capsule: only the label's numbers per piece count.") },
+                    suffix = { Text("g") }, singleLine = true, isError = pieceText.isNotBlank() && pieceG == null,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+                if (pieceG != null) SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+                    listOf(false to "Values per 100 g", true to "Values per piece").forEachIndexed { i, (p, text) ->
+                        SegmentedButton(selected = perPiece == p, onClick = { perPiece = p }, shape = SegmentedButtonDefaults.itemShape(i, 2)) { Text(text) }
+                    }
+                }
+            }
+            item {
+                Text(if (typedPerPiece) "Per piece, as on the label" else "Per 100 g, as on the label", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 16.dp, top = 16.dp))
                 Text(
                     "Kolhydrater on EU labels already leaves out fibre, the same as the database.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,

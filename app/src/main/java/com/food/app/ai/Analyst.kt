@@ -4,6 +4,7 @@ import android.content.Context
 import com.food.app.FoodApp
 import com.food.app.data.Catalog
 import com.food.app.data.TargetsState
+import com.food.core.AmountUnit
 import com.food.core.Analyses
 import com.food.core.Analysis
 import com.food.core.DietDigest
@@ -102,7 +103,13 @@ object Analyst {
             val days = entries.groupBy { it.date }.map { (date, list) ->
                 DigestDay(
                     LocalDate.parse(date),
-                    list.map { DigestFood(Meal.of(it.meal), it.foodName, it.grams, catalog.fermented(it.foodId, it.foodName), it.foodId) },
+                    list.map {
+                        DigestFood(
+                            Meal.of(it.meal), it.foodName, it.grams, catalog.fermented(it.foodId, it.foodName), it.foodId,
+                            amount = if (it.unit == AmountUnit.PIECE.code) "${DietDigest.num(it.amount)} st" else null,
+                            supplement = it.foodId in catalog.supplementIds,
+                        )
+                    },
                     Totals.of(list.map { Portion(it.foodId, it.grams) }, values),
                 )
             }
@@ -117,7 +124,9 @@ object Analyst {
                     f.source == Source.USDA -> "${f.note ?: "USDA FoodData Central"}, FDC ${f.sourceId}"
                     else -> "Livsmedelsverket food ${f.sourceId}" + (f.lvType?.let { ", ${if (it.startsWith("Ber")) "calculated" else "analysed"}" }.orEmpty())
                 }
-                DigestFoodInfo(name, source, values[id].orEmpty())
+                // A supplement's assumed zeros only count in the totals; Kimi reads what its label lists.
+                val per100g = values[id].orEmpty().let { v -> if (f?.supplement == true) v.filterValues { it != 0.0 } else v }
+                DigestFoodInfo(name, if (f?.supplement == true) "$source; a supplement" else source, per100g)
             }
             DigestInput(
                 today = today,
@@ -151,6 +160,10 @@ object Analyst {
           trends between weeks, not single days.
         - "[fermented]" marks foods with live cultures; fibre and fermented servings together are
           their gut-food count.
+        - "[supplement]" marks a supplement, taken only on the days it's logged. NNR's upper limit
+          for magnesium (250 mg a day) applies to supplements alone, not food; the zinc (25 mg) and
+          vitamin B6 (12 mg) upper limits count everything. Say how much of a nutrient came from
+          food and how much from supplements.
         - When you name a gap or an excess, name the foods behind it from "Where each nutrient comes
           from", and when you suggest a food, say what it would add in numbers.
 

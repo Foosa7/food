@@ -8,8 +8,19 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToLong
 
-/** One food as eaten on a day. [foodId] finds its values in [DigestInput.foods]. */
-data class DigestFood(val meal: Meal, val name: String, val grams: Double, val fermented: Boolean, val foodId: String = name)
+/**
+ * One food as eaten on a day. [foodId] finds its values in [DigestInput.foods]. [amount] is what
+ * was logged when it isn't plain grams, e.g. "1 st".
+ */
+data class DigestFood(
+    val meal: Meal,
+    val name: String,
+    val grams: Double,
+    val fermented: Boolean,
+    val foodId: String = name,
+    val amount: String? = null,
+    val supplement: Boolean = false,
+)
 
 /** A food's values per 100 g, what it is, and where its numbers come from. */
 data class DigestFoodInfo(val name: String, val source: String, val per100g: Map<String, Double>)
@@ -241,6 +252,7 @@ object DietDigest {
                     names.takeIf { it.isNotEmpty() }?.let { "logged as ${it.joinToString { n -> "\"$n\"" }}" },
                     "logged ${list.size} ${if (list.size == 1) "time" else "times"}, ${num(list.sumOf { it.grams })} g in all",
                     "fermented, live cultures".takeIf { list.any { it.fermented } },
+                    "a supplement".takeIf { list.any { it.supplement } },
                 ).joinToString(" · ")
             )
             if (info != null) appendLine(values(info.per100g, 100.0))
@@ -257,7 +269,9 @@ object DietDigest {
             for (meal in Meal.entries) {
                 for (f in d.foods.filter { it.meal == meal }) {
                     val given = foods[f.foodId]?.let { values(it.per100g, f.grams) } ?: "no values"
-                    appendLine("- ${meal.label} · ${f.name} ${num(f.grams)} g${if (f.fermented) " [fermented]" else ""}: $given")
+                    val portion = f.amount?.let { "$it (${num(f.grams)} g)" } ?: "${num(f.grams)} g"
+                    val tags = listOfNotNull("[fermented]".takeIf { f.fermented }, "[supplement]".takeIf { f.supplement })
+                    appendLine("- ${meal.label} · ${f.name} $portion${tags.joinToString("") { " $it" }}: $given")
                 }
             }
             val parts = SHOWN.mapNotNull { def ->

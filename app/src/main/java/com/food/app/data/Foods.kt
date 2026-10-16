@@ -23,6 +23,8 @@ class Catalog(
     val version: Long,
     /** Label foods ticked as fermented. */
     private val fermentedIds: Set<String> = emptySet(),
+    /** Label foods ticked as supplements. */
+    val supplementIds: Set<String> = emptySet(),
 ) {
     val byId = rows.associateBy { it.id }
     val search = FoodSearch(rows.map { SearchItem(it.id, it.nameSv, it.nameEn, it.group) })
@@ -51,7 +53,11 @@ class Foods(private val ref: FoodsDb, private val user: UserDb, scope: Coroutine
                     val kcal = LabelFood.complete(label)["ENERC_KCAL"] ?: f.baseFoodId?.let { lvById[it]?.kcal }
                     FoodRow(FoodId.custom(f.id), f.name, null, MY_FOODS, kcal)
                 }
-                Catalog(mine + lvRows, meta, System.nanoTime(), custom.filter { it.fermented }.map { FoodId.custom(it.id) }.toSet())
+                Catalog(
+                    mine + lvRows, meta, System.nanoTime(),
+                    custom.filter { it.fermented }.map { FoodId.custom(it.id) }.toSet(),
+                    custom.filter { it.supplement }.map { FoodId.custom(it.id) }.toSet(),
+                )
             }
         }
         .flowOn(Dispatchers.IO)
@@ -66,6 +72,7 @@ class Foods(private val ref: FoodsDb, private val user: UserDb, scope: Coroutine
             id = id, source = Source.LABEL, sourceId = customId.toString(),
             nameSv = f.name, nameEn = null, scientificName = null, lvType = null, group = MY_FOODS,
             note = base?.let { "Based on ${it.nameSv}" }, version = null, wastePct = null,
+            pieceG = f.pieceG, supplement = f.supplement,
         )
     }
 
@@ -75,7 +82,7 @@ class Foods(private val ref: FoodsDb, private val user: UserDb, scope: Coroutine
         val label = user.customFoods().nutrients(customId).associate { it.nutrient to it.value }
         val base = f.baseFoodId?.let { ref.nutrients(it) }.orEmpty()
         val baseName = f.baseFoodId?.let { ref.food(it)?.nameSv }
-        return LabelFood.merge(id, label, base, baseName)
+        return LabelFood.merge(id, label, base, baseName, f.supplement)
     }
 
     /** foodId → (nutrient → value per 100 g), the shape [com.food.core.Totals] takes. */

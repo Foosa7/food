@@ -25,8 +25,12 @@ object LabelFood {
         return out
     }
 
-    /** The label's values as rows, over the base food's rows. */
-    fun merge(foodId: String, label: Map<String, Double>, base: List<FoodNutrient>, baseName: String?): List<FoodNutrient> {
+    /**
+     * The label's values as rows, over the base food's rows. A [supplement] has nothing but what
+     * its label lists, so every other nutrient is an assumed zero rather than unknown: a capsule
+     * mustn't turn a day's energy into a lower bound.
+     */
+    fun merge(foodId: String, label: Map<String, Double>, base: List<FoodNutrient>, baseName: String?, supplement: Boolean = false): List<FoodNutrient> {
         val completed = complete(label)
         val derived = completed.keys - label.keys
         val fromLabel = completed.map { (code, v) ->
@@ -38,6 +42,10 @@ object LabelFood {
         val fromBase = base.filter { it.nutrient !in completed }.map {
             it.copy(foodId = foodId, comment = listOfNotNull("From the base food${baseName?.let { n -> ", $n" } ?: ""}", it.comment).joinToString(". "))
         }
-        return fromLabel + fromBase
+        val known = (fromLabel + fromBase).map { it.nutrient }.toSet()
+        val zeros = if (!supplement) emptyList() else Nutrients.ALL.filter { it.code !in known }.map {
+            FoodNutrient(foodId, it.code, 0.0, Source.LABEL, logicalZero = true, comment = "A supplement: not on its label, so taken as zero")
+        }
+        return fromLabel + fromBase + zeros
     }
 }

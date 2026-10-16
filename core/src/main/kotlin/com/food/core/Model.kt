@@ -37,6 +37,10 @@ data class Food(
     val wastePct: Double?,
     /** No longer listed by the source; kept so older log entries still add up. */
     val removed: Boolean = false,
+    /** What one piece weighs (a capsule, a bar), for foods logged in pieces. */
+    val pieceG: Double? = null,
+    /** A supplement rather than a food. */
+    val supplement: Boolean = false,
 )
 
 /** One nutrient of one food, per 100 g edible part. */

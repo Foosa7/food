@@ -4,7 +4,9 @@ import java.time.LocalTime
 
 enum class AmountUnit(val code: String) {
     G("g"),
-    ML("ml");
+    ML("ml"),
+    /** Capsules, tablets, bars: for foods that know what one piece weighs. */
+    PIECE("st");
 
     companion object {
         fun of(code: String) = entries.first { it.code == code }
@@ -15,9 +17,11 @@ object Amounts {
     /** For drinks, 1 ml is taken as 1 g. Close for water, milk, juice and coffee. */
     const val G_PER_ML = 1.0
 
-    fun grams(amount: Double, unit: AmountUnit): Double = when (unit) {
+    /** [pieceG] is what one piece of the food weighs; needed only for [AmountUnit.PIECE]. */
+    fun grams(amount: Double, unit: AmountUnit, pieceG: Double? = null): Double = when (unit) {
         AmountUnit.G -> amount
         AmountUnit.ML -> amount * G_PER_ML
+        AmountUnit.PIECE -> amount * requireNotNull(pieceG) { "this food has no piece weight" }
     }
 }
 
