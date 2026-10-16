@@ -73,6 +73,8 @@ data class CustomFood(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
     @ColumnInfo(name = "base_food_id") val baseFoodId: String?,
+    /** Has live cultures (kimchi, kefir…), for the gut count; the name rule catches most anyway. */
+    @ColumnInfo(defaultValue = "0") val fermented: Boolean = false,
     @ColumnInfo(name = "created_at") val createdAt: Long,
     @ColumnInfo(name = "updated_at") val updatedAt: Long,
 )
@@ -220,9 +222,9 @@ interface LogDao {
 /** user.db: everything the user enters. Never shipped, never in git. */
 @Database(
     entities = [LogEntry::class, Barcode::class, CustomFood::class, CustomFoodNutrient::class, ProfileRow::class, TargetEditRow::class],
-    version = 3,
+    version = 4,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3)],
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4)],
 )
 abstract class UserDb : RoomDatabase() {
     abstract fun log(): LogDao

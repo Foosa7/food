@@ -1,5 +1,6 @@
 package com.food.app.data
 
+import com.food.core.Fermented
 import com.food.core.Food
 import com.food.core.FoodId
 import com.food.core.FoodNutrient
@@ -16,9 +17,19 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 /** Everything search needs, rebuilt whenever a label food changes. */
-class Catalog(val rows: List<FoodRow>, val meta: Map<String, String>, val version: Long) {
+class Catalog(
+    val rows: List<FoodRow>,
+    val meta: Map<String, String>,
+    val version: Long,
+    /** Label foods ticked as fermented. */
+    private val fermentedIds: Set<String> = emptySet(),
+) {
     val byId = rows.associateBy { it.id }
     val search = FoodSearch(rows.map { SearchItem(it.id, it.nameSv, it.nameEn, it.group) })
+
+    /** Live cultures: ticked on a label food, or a fermented food by name (yours, or the database's). */
+    fun fermented(foodId: String, loggedName: String): Boolean =
+        foodId in fermentedIds || Fermented.byName(loggedName) || byId[foodId]?.let { Fermented.byName(it.nameSv) } == true
 }
 
 /**
@@ -40,7 +51,7 @@ class Foods(private val ref: FoodsDb, private val user: UserDb, scope: Coroutine
                     val kcal = LabelFood.complete(label)["ENERC_KCAL"] ?: f.baseFoodId?.let { lvById[it]?.kcal }
                     FoodRow(FoodId.custom(f.id), f.name, null, MY_FOODS, kcal)
                 }
-                Catalog(mine + lvRows, meta, System.nanoTime())
+                Catalog(mine + lvRows, meta, System.nanoTime(), custom.filter { it.fermented }.map { FoodId.custom(it.id) }.toSet())
             }
         }
         .flowOn(Dispatchers.IO)

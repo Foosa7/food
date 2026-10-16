@@ -7,6 +7,15 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
@@ -60,6 +69,8 @@ class MainActivity : ComponentActivity() {
 
 sealed interface Screen {
     data object Day : Screen
+    /** The second tab: progress and the AI's take. */
+    data object Analysis : Screen
     data class Scan(val date: LocalDate, val meal: Meal) : Screen
     /** With [linkBarcode], the food picked gets that barcode. */
     data class Search(val date: LocalDate, val meal: Meal, val linkBarcode: String? = null) : Screen
@@ -119,10 +130,16 @@ private fun AppRoot() {
     fun pop() { if (stack.size > 1) stack.removeAt(stack.lastIndex) }
     fun home() { while (stack.size > 1) pop() }
     fun replace(s: Screen) { pop(); push(s) }
+    fun tab(s: Screen) { stack.clear(); stack += s }
 
     BackHandler(stack.size > 1) { pop() }
+    BackHandler(stack.size == 1 && stack[0] == Screen.Analysis) { tab(Screen.Day) }
 
     val date = LocalDate.parse(day)
+    val root = stack.size == 1
+    Column(Modifier.fillMaxSize()) {
+    // The bottom bar takes the navigation bar's inset; the screen above mustn't pad for it again.
+    Box(Modifier.weight(1f).then(if (root) Modifier.consumeWindowInsets(WindowInsets.navigationBars) else Modifier)) {
     when (val s = stack.last()) {
         Screen.Day -> DayScreen(
             date = date,
@@ -218,6 +235,19 @@ private fun AppRoot() {
             onActivityChanged = { activityTick++ },
             onBack = ::pop,
         )
+        Screen.Analysis -> AnalysisScreen(catalog = catalog, targets = targets, onProfile = { push(Screen.Profile) })
+    }
+    }
+    if (root) NavigationBar {
+        NavigationBarItem(
+            selected = stack[0] == Screen.Day, onClick = { tab(Screen.Day) },
+            icon = { Icon(Icons.Filled.DateRange, null) }, label = { Text("Day") },
+        )
+        NavigationBarItem(
+            selected = stack[0] == Screen.Analysis, onClick = { tab(Screen.Analysis) },
+            icon = { Text("✦", style = MaterialTheme.typography.titleLarge) }, label = { Text("Analysis") },
+        )
+    }
     }
 }
 

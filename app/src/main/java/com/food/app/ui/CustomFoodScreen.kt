@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -49,6 +50,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.food.app.FoodApp
 import com.food.app.data.Catalog
 import com.food.app.data.CustomFood
+import com.food.core.Fermented
 import com.food.core.FoodId
 import com.food.core.LabelFood
 import com.food.core.Nutrients
@@ -74,6 +76,7 @@ fun CustomFoodScreen(
     val scope = rememberCoroutineScope()
     var name by rememberSaveable { mutableStateOf(initialName) }
     var baseId by rememberSaveable { mutableStateOf<String?>(null) }
+    var fermented by rememberSaveable { mutableStateOf(false) }
     val fields = remember { mutableStateMapOf<String, String>() }
     var existing by remember { mutableStateOf<CustomFood?>(null) }
     var more by rememberSaveable { mutableStateOf(false) }
@@ -87,7 +90,7 @@ fun CustomFoodScreen(
         }
         existing = f
         if (f != null) {
-            name = f.name; baseId = f.baseFoodId
+            name = f.name; baseId = f.baseFoodId; fermented = f.fermented
             values.forEach { fields[it.nutrient] = Format.value(it.value) }
             if (values.any { it.nutrient !in LabelFood.LABEL_FIELDS }) more = true
         }
@@ -103,7 +106,7 @@ fun CustomFoodScreen(
         scope.launch {
             val id = withContext(Dispatchers.IO) {
                 val f = (existing ?: CustomFood(name = name.trim(), baseFoodId = baseId, createdAt = now, updatedAt = now))
-                    .copy(name = name.trim(), baseFoodId = baseId, updatedAt = now)
+                    .copy(name = name.trim(), baseFoodId = baseId, fermented = fermented, updatedAt = now)
                 app.user.customFoods().save(f, parsed)
             }
             onSaved(FoodId.custom(id))
@@ -138,6 +141,21 @@ fun CustomFoodScreen(
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         if (baseId != null) TextButton(onClick = { baseId = null }, contentPadding = PaddingValues(0.dp)) { Text("Remove") }
+                    }
+                }
+            }
+            item {
+                Row(
+                    Modifier.fillMaxWidth().clickable { fermented = !fermented }.padding(horizontal = 4.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Checkbox(checked = fermented || Fermented.byName(name), onCheckedChange = { fermented = it }, enabled = !Fermented.byName(name))
+                    Column {
+                        Text("Fermented, with live cultures")
+                        Text(
+                            if (Fermented.byName(name)) "Counted from the name already." else "Like kimchi, kefir or surkål. Counted as gut food in Analysis.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }

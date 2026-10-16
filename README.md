@@ -1,6 +1,6 @@
 # food
 
-A personal food and nutrition tracker for Android, built around Swedish groceries. It tracks energy, macros and every micronutrient, compared with the Nordic Nutrition Recommendations 2023, and it works offline.
+A personal food and nutrition tracker for Android, built around Swedish groceries. It tracks energy, macros and every micronutrient, compared with the Nordic Nutrition Recommendations 2023, and it works offline (only the optional AI analysis goes online).
 
 Work in progress. Done so far:
 
@@ -9,6 +9,8 @@ Work in progress. Done so far:
 - **(c)** every nutrient against your **NNR 2023** targets (this day or a 7-day average), with low / over flags and where each nutrient came from; a profile with every field and target editable; activity (steps, calories burned) from Fitbit via Health Connect; history with weekly averages; export to JSON + SQLite
 - foods from a package label, optionally based on a database food for the micronutrients the label doesn't list
 - **(d)** barcode scanning (EAN-13/EAN-8, offline): a known product logs in one tap with its usual portion; an unknown one is linked to a database food, with your name for it, as you log it
+- **(e)** an **Analysis** tab: this week against last (energy, protein, fibre, salt, vitamin D, EPA+DHA omega-3, fermented servings, nutrients on target), and a short AI take from Kimi with your own key. The model reads every nutrient against your targets, week by week for 12 weeks and day by day for two, and keeps its own notes between runs so it follows your progress over time
+- gut food: fibre against NNR, and servings of fermented foods with live cultures (by name, or ticked on a label food)
 
 ## Data
 
@@ -42,4 +44,4 @@ The first sync downloads every food (about a minute and a half). Later syncs onl
 
 - `core/`: pure Kotlin: the nutrient catalog, Livsmedelsverket parsing, the foods.db schema and all the rules. Shared by the sync tool and the app.
 - `sync/`: the command-line tool that builds foods.db.
-- `app/`: the Android app (Kotlin, Jetpack Compose, Room). It bundles foods.db read-only; your log lives in a separate `user.db` on the phone and never leaves it.
+- `app/`: the Android app (Kotlin, Jetpack Compose, Room). It bundles foods.db read-only; your log lives in a separate `user.db` on the phone. It leaves the phone only when you export it, or as a summary sent to the AI model when you ask for an analysis; the API key is kept in the app's private storage, never in this repo.

@@ -9,6 +9,9 @@
     <uses-permission android:name="android.permission.health.READ_STEPS" />
     <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED" />
 
+    <!-- Only for the AI analysis, with your own key: a summary of what you logged goes to the model you pick. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <queries>
         <package android:name="com.google.android.apps.healthdata" />
     </queries>
