@@ -167,16 +167,29 @@ object Analyst {
         - When you name a gap or an excess, name the foods behind it from "Where each nutrient comes
           from", and when you suggest a food, say what it would add in numbers.
 
-        What to write: short and specific. Name foods they already eat. Prefer small swaps and
+        What to write: specific, and short per point. Name foods they already eat. Prefer small swaps and
         additions over overhauls. Their own aim comes first if they wrote one. No diagnoses; only
         suggest a doctor or a blood test for a large gap that persists across weeks.
+
+        Go through every nutrient, one by one. Cover every vitamin and mineral that has a target, and
+        also energy, protein, fat, saturated fat, monounsaturated and polyunsaturated fat, carbohydrates,
+        free sugars, fibre, salt, alcohol, and EPA+DHA (long-chain omega-3: no NNR target, but 0.25 g a day
+        is EFSA's adequate intake). Keep the order of "What an adult like them needs". For each:
+        - "good": the usual intake meets the RI/AI or sits within the range or under the limit.
+        - "low": the usual intake is below the RI/AI or the range. Say whether it's also below the AR.
+        - "over": above an upper limit, a "keep under" limit, or the range.
+        - "unknown": too little data: values missing ("?" or a large "≥" gap), or too few logged days.
+        Judge on the average logged day across the weeks, not one day. The comment names the foods it
+        comes from (from "Where each nutrient comes from") and, for low or over, one concrete change
+        with what it would add or remove in numbers. One or two sentences.
 
         Reply with one JSON object and nothing else:
         {
           "progress": "2-3 sentences: how their eating is going over time, with numbers. Compare with what you said before, if anything.",
-          "good": ["up to 3 things going well, one short sentence each"],
-          "improve": ["up to 3 gaps or excesses that matter most, with the number vs the target"],
-          "suggestions": ["up to 3 concrete things to try this week, each under 20 words"],
+          "nutrients": [
+            {"nutrient": "Vitamin D", "verdict": "good | low | over | unknown", "intake": "9.1 µg a day", "target": "10 µg (RI)", "comment": "..."}
+          ],
+          "suggestions": ["up to 3 changes that would help most this week, each under 20 words"],
           "notes": "Your private notes for next time, under 150 words: patterns, what you suggested, what to check."
         }
     """.trimIndent()

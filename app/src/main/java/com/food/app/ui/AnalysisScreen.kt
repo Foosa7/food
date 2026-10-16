@@ -59,6 +59,8 @@ import com.food.app.data.Catalog
 import com.food.app.data.LogEntry
 import com.food.app.data.TargetsState
 import com.food.core.Analysis
+import com.food.core.NutrientVerdict
+import com.food.core.Verdicts
 import com.food.core.Fermented
 import com.food.core.Nutrients
 import com.food.core.Status
@@ -243,15 +245,54 @@ private fun AiCard(state: Analyst.State, latest: Analysis?, hasKey: Boolean, onR
             Text(when_(latest), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))
             Text(latest.progress, style = MaterialTheme.typography.bodyLarge)
+            Bullets("Try this", latest.suggestions)
+            NutrientVerdicts(latest.nutrients)
+            // Analyses from before the nutrient-by-nutrient answer.
             Bullets("Going well", latest.good)
             Bullets("To improve", latest.improve)
-            Bullets("Try this", latest.suggestions)
             if (latest.notes.isNotBlank()) {
                 var open by remember { mutableStateOf(false) }
                 TextButton(onClick = { open = !open }, contentPadding = PaddingValues(0.dp)) {
                     Text(if (open) "Hide Kimi's notes" else "Kimi's notes for next time")
                 }
                 if (open) Text(latest.notes, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+/** Every nutrient, grouped by how it's going. */
+@Composable
+private fun NutrientVerdicts(list: List<NutrientVerdict>) {
+    if (list.isEmpty()) return
+    val groups = listOf(
+        Verdicts.GOOD to "Doing well",
+        Verdicts.LOW to "Can improve",
+        Verdicts.OVER to "Too much",
+        Verdicts.UNKNOWN to "Not enough data",
+    )
+    val by = list.groupBy { v -> v.verdict.lowercase().trim().takeIf { it in Verdicts.ALL } ?: Verdicts.UNKNOWN }
+    for ((verdict, title) in groups) {
+        val items = by[verdict].orEmpty()
+        if (items.isEmpty()) continue
+        val color = when (verdict) {
+            Verdicts.GOOD -> MaterialTheme.colorScheme.primary
+            Verdicts.LOW -> statusColor(Status.BELOW_TARGET)
+            Verdicts.OVER -> MaterialTheme.colorScheme.error
+            else -> MaterialTheme.colorScheme.outline
+        }
+        Text("$title (${items.size})", style = MaterialTheme.typography.titleSmall, color = color, modifier = Modifier.padding(top = 16.dp, bottom = 2.dp))
+        items.forEach { v ->
+            Column(Modifier.padding(vertical = 5.dp)) {
+                Text(
+                    buildString {
+                        append(v.nutrient)
+                        if (v.intake.isNotBlank()) append(" · ${v.intake}")
+                        if (v.target.isNotBlank()) append(" · need ${v.target}")
+                    },
+                    style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold,
+                )
+                if (v.comment.isNotBlank()) Text(v.comment, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

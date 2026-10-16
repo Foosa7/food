@@ -175,4 +175,14 @@ class DietDigestTest {
         assertTrue(text, text.contains("- Snack · Myprotein Zinc & Magnesium 1 st (1 g) [supplement]: Energy 0 kcal · Vitamin B6 3.7 mg · Magnesium 150 mg · Zinc 10 mg"))
         assertTrue(text.contains("logged 1 time, 1 g in all · a supplement"))
     }
+
+    @Test fun `a nutrient-by-nutrient answer parses`() {
+        val a = Analyses.parse(
+            """{"progress": "p", "nutrients": [{"nutrient": "Vitamin D", "verdict": "low", "intake": "9.1 µg a day",
+            "target": "10 µg (RI)", "comment": "Eggs and milk."}, {"nutrient": "Zinc", "verdict": null}], "suggestions": []}"""
+        )!!
+        assertEquals(2, a.nutrients.size)
+        assertEquals(NutrientVerdict("Vitamin D", "low", "9.1 µg a day", "10 µg (RI)", "Eggs and milk."), a.nutrients[0])
+        assertEquals("", a.nutrients[1].verdict)
+    }
 }

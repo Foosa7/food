@@ -4,11 +4,35 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
+/** The model's verdict on one nutrient. */
+@Serializable
+data class NutrientVerdict(
+    val nutrient: String = "",
+    /** One of [Verdicts]. */
+    val verdict: String = "",
+    /** What they get, e.g. "9.1 µg a day". */
+    val intake: String = "",
+    /** What they need, e.g. "10 µg (RI)". */
+    val target: String = "",
+    /** Which foods it comes from, and what would change it. */
+    val comment: String = "",
+)
+
+object Verdicts {
+    const val GOOD = "good"
+    const val LOW = "low"
+    const val OVER = "over"
+    const val UNKNOWN = "unknown"
+    val ALL = listOf(GOOD, LOW, OVER, UNKNOWN)
+}
+
 /** One AI analysis of the diet, as the model answered it plus when and by whom. */
 @Serializable
 data class Analysis(
     /** 2–3 sentences: how things are going over time. */
     val progress: String = "",
+    /** Every nutrient with a target, in the order the model was given them. */
+    val nutrients: List<NutrientVerdict> = emptyList(),
     val good: List<String> = emptyList(),
     val improve: List<String> = emptyList(),
     /** Concrete things to try, short. */
@@ -36,7 +60,7 @@ object Analyses {
         val end = reply.lastIndexOf('}')
         if (start < 0 || end <= start) return null
         val a = runCatching { json.decodeFromString<Analysis>(reply.substring(start, end + 1)) }.getOrNull() ?: return null
-        return a.takeIf { it.progress.isNotBlank() || it.suggestions.isNotEmpty() || it.improve.isNotEmpty() }
+        return a.takeIf { it.progress.isNotBlank() || it.suggestions.isNotEmpty() || it.improve.isNotEmpty() || it.nutrients.isNotEmpty() }
     }
 
     fun line(a: Analysis): String = json.encodeToString(a)
