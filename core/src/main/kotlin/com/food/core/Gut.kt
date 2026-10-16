@@ -12,12 +12,15 @@ object Fermented {
     private val INCLUDE = listOf(
         "filmjölk", "yoghurt", "kefir", "surkål", "fermenter", "miso", "kimchi", "långfil",
         "a-fil", "kombucha", "skyr", "natto", "kvass",
+        // USDA's names are English.
+        "yogurt", "sauerkraut",
     )
 
     // Cooked, baked, frozen, dried or mostly something else: the cultures don't survive or don't matter.
     private val EXCLUDE = listOf(
         "smoothie", "barnmat", "barngröt", "gröt", "korv", "isterband", "sås", "dressing", "glass",
         "pulver", "bröd", "kaka", "paj", "tzatziki", "färskost", "te ferment",
+        "frozen", "coated", "covered", "powder", "bread", "dip", "bar,", "pretzel",
     )
 
     fun byName(name: String): Boolean {

@@ -9,6 +9,9 @@ private const val USAGE = """Usage: ./gradlew :sync:run --args="<command> [--ful
   fetch   only update the raw cache in data/raw/lv
   build   only rebuild data/foods.db and data/report-lv.md from the cache
 
+USDA FoodData Central goes in too when its CSV downloads are in data/raw/usda (SR Legacy and
+Foundation Foods zips from https://fdc.nal.usda.gov/download-datasets).
+
   --full  fetch every food again, ignoring the cache
 """
 
@@ -35,10 +38,12 @@ private fun fetch(cache: File, full: Boolean) {
 }
 
 private fun build(cache: File) {
-    val result = LvBuild.run(cache, File("data/foods.db"))
+    val usda = UsdaRead.read(File("data/raw/usda"))
+    val result = LvBuild.run(cache, File("data/foods.db"), usda = usda.foods, usdaDatasets = usda.datasets)
     File("data/report-lv.md").writeText(LvReport.render(result))
     val unknown = result.foods.sumOf { it.unknown.size }
     println("Wrote ${result.out} (${result.out.length() / 1024} KB): ${result.foods.size} foods, " +
         "${result.foods.sumOf { it.nutrients.size }} values. Report: data/report-lv.md")
+    println("USDA: ${usda.foods.size} foods${if (usda.datasets.isEmpty()) " (no downloads in data/raw/usda)" else " from " + usda.datasets.joinToString()}")
     if (unknown > 0) println("WARNING: $unknown values with nutrients the catalog doesn't know; see the report")
 }

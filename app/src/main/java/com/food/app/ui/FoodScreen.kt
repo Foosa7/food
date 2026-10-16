@@ -68,6 +68,7 @@ import com.food.core.NutrientDef
 import com.food.core.NutrientGroup
 import com.food.core.Nutrients
 import com.food.core.Source
+import com.food.core.Usda
 import com.food.core.scale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -278,6 +279,7 @@ private fun Header(food: Food?, name: String) {
         if (food != null) {
             val kind = when {
                 food.source == Source.LABEL -> listOfNotNull("from a label", food.note?.replaceFirstChar { it.lowercase() }).joinToString(", ")
+                food.source == Source.USDA -> food.note
                 food.lvType == "Analyserat" -> "analysed"
                 food.lvType == "Beräknat" -> "calculated from a recipe"
                 else -> food.lvType
@@ -515,11 +517,19 @@ private fun Attribution(food: Food) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        } else if (food.source == Source.USDA) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Source: ${Usda.ATTRIBUTION} (${Usda.LICENSE}), FDC #${food.sourceId}. Carbohydrates are " +
+                    "USDA's by difference minus fibre, vitamin A is worked out as retinol equivalents, and salt is sodium × 2.5.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         } else {
             Spacer(Modifier.height(8.dp))
             Text(
-                "Values tagged label are from the package. Values tagged LV come from the base food, " +
-                    "${Lv.ATTRIBUTION} (${Lv.LICENSE}).",
+                "Values tagged label are from the package. The rest come from the base food: " +
+                    "${Lv.ATTRIBUTION} (${Lv.LICENSE}) or ${Usda.ATTRIBUTION} (${Usda.LICENSE}).",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

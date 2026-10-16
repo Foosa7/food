@@ -113,7 +113,8 @@ object Analyst {
                 val source = when {
                     f == null -> "no longer in the database"
                     f.source == Source.LABEL -> "their own food from a package label" +
-                        (f.note?.removePrefix("Based on ")?.let { "; what the label doesn't list comes from Livsmedelsverket's \"$it\"" }.orEmpty())
+                        (f.note?.removePrefix("Based on ")?.let { "; what the label doesn't list comes from the database food \"$it\"" }.orEmpty())
+                    f.source == Source.USDA -> "${f.note ?: "USDA FoodData Central"}, FDC ${f.sourceId}"
                     else -> "Livsmedelsverket food ${f.sourceId}" + (f.lvType?.let { ", ${if (it.startsWith("Ber")) "calculated" else "analysed"}" }.orEmpty())
                 }
                 DigestFoodInfo(name, source, values[id].orEmpty())
@@ -138,8 +139,8 @@ object Analyst {
         adult of their sex, age, size and activity needs, nutrient by nutrient; weekly averages of
         every macro- and micronutrient; for every nutrient, which foods it came from and how much;
         every food they ate with all its values per 100 g; and the last two weeks portion by portion
-        with what each portion gave. Values come from Livsmedelsverket's food database, or from a
-        package label for their own foods. Use these numbers rather than general knowledge about
+        with what each portion gave. Values come from Livsmedelsverket's food database, USDA
+        FoodData Central, or a package label for their own foods. Use these numbers rather than general knowledge about
         foods: they are what this person actually ate.
 
         How to read the data:

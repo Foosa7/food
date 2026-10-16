@@ -140,7 +140,8 @@ private fun FoodRowItem(row: FoodRow, onClick: () -> Unit) {
     ) {
         Column(Modifier.weight(1f)) {
             Text(row.nameSv, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            row.nameEn?.let {
+            // USDA foods have English names only; say where they're from instead.
+            (row.nameEn ?: if (row.id.startsWith("usda:")) "USDA" + (row.group?.let { " · $it" } ?: "") else null)?.let {
                 Text(
                     it, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodySmall,

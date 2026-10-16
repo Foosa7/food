@@ -60,6 +60,7 @@ import com.food.core.Meal
 import com.food.core.Portion
 import com.food.core.Total
 import com.food.core.Totals
+import com.food.core.Usda
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.Instant
@@ -267,8 +268,9 @@ private fun AboutDialog(catalog: Catalog, onDismiss: () -> Unit) {
         text = {
             Text(
                 "Nutrient values come from ${Lv.ATTRIBUTION} (Swedish Food Agency), " +
-                    "licensed ${Lv.LICENSE}. ${catalog.rows.size} foods" +
-                    (synced?.let { ", downloaded $it" } ?: "") + ".\n\n" +
+                    "licensed ${Lv.LICENSE}" + (synced?.let { ", downloaded $it" } ?: "") + ", and from " +
+                    "${Usda.ATTRIBUTION} (${catalog.meta[FoodsSchema.Meta.USDA_DATASETS] ?: "SR Legacy, Foundation"}), ${Usda.LICENSE}. " +
+                    "${catalog.rows.size} foods in all.\n\n" +
                     "All values are per 100 g of the edible part. Everything you log stays on this phone."
             )
         },

@@ -55,5 +55,7 @@ object FoodsSchema {
         const val LV_FOODS = "lv_foods"
         const val ATTRIBUTION = "attribution"
         const val LICENSE = "license"
+        /** Which FoodData Central downloads went in, e.g. "SR Legacy 2018-04, Foundation 2026-04-30". */
+        const val USDA_DATASETS = "usda_datasets"
     }
 }

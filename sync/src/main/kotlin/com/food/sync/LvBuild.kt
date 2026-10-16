@@ -17,7 +17,8 @@ object LvBuild {
 
     data class Result(val foods: List<ImportedFood>, val listed: Int, val out: File, val syncedAt: Instant)
 
-    fun run(cache: File, out: File, now: Instant = Instant.now()): Result {
+    /** [usda] foods go in next to Livsmedelsverket's; [usdaDatasets] says which downloads they came from. */
+    fun run(cache: File, out: File, now: Instant = Instant.now(), usda: List<ImportedFood> = emptyList(), usdaDatasets: List<String> = emptyList()): Result {
         val listed = readFoods(File(cache, "list-sv.json")).map { it.nummer }.toSet()
         val sv = readFoods(File(cache, "seen-sv.json").takeIf { it.exists() } ?: File(cache, "list-sv.json"))
         val en = readFoods(File(cache, "seen-en.json").takeIf { it.exists() } ?: File(cache, "list-en.json"))
@@ -41,7 +42,7 @@ object LvBuild {
         val tmp = File(out.parentFile, out.name + ".tmp")
         tmp.delete()
         DriverManager.getConnection("jdbc:sqlite:${tmp.path}").use { db ->
-            write(db, foods, listed.size, now)
+            write(db, foods + usda, listed.size, now, usdaDatasets)
         }
         check(tmp.renameTo(out)) { "could not write $out" }
         // The app reads this small file to tell whether its bundled foods.db is newer than the one
@@ -50,7 +51,7 @@ object LvBuild {
         return Result(foods, listed.size, out, now)
     }
 
-    private fun write(db: Connection, foods: List<ImportedFood>, listed: Int, now: Instant) {
+    private fun write(db: Connection, foods: List<ImportedFood>, listed: Int, now: Instant, usdaDatasets: List<String>) {
         db.autoCommit = false
         db.createStatement().use { s ->
             FoodsSchema.DDL.forEach(s::execute)
@@ -64,6 +65,7 @@ object LvBuild {
                 FoodsSchema.Meta.LV_FOODS to listed.toString(),
                 FoodsSchema.Meta.ATTRIBUTION to Lv.ATTRIBUTION,
                 FoodsSchema.Meta.LICENSE to Lv.LICENSE,
+                FoodsSchema.Meta.USDA_DATASETS to usdaDatasets.joinToString(", "),
             )) { st.setString(1, k); st.setString(2, v); st.addBatch() }
             st.executeBatch()
         }
